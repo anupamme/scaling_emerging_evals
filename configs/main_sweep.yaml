@@ -1,0 +1,24 @@
+models:
+  - "70m"
+  - "160m"
+  - "410m"
+  - "1b"
+  - "1.4b"
+  - "2.8b"
+
+tasks:
+  - name: "arithmetic_2digit"
+    n_examples: 200
+  - name: "arithmetic_3digit"
+    n_examples: 200
+  - name: "factual_recall"
+    n_examples: 100
+  - name: "truthfulqa_mc1"
+    n_examples: 200
+  - name: "icl_arithmetic_2digit"
+    n_examples: 100
+
+seed: 42
+dtype: "float32"
+revision: "main"
+output: "results/"
