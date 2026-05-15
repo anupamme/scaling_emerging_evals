@@ -51,3 +51,18 @@ def test_load_all_results_dataframe(tmp_path: Path):
     }
     assert set(df["run_id"]) == {"run-1", "run-2", "run-3"}
     assert set(df["metric_name"]) == {"accuracy", "mean_logprob", "f1"}
+
+
+def test_deduplication(tmp_path: Path):
+    for i in range(3):
+        write_result(_make_result(f"run-{i}", {"accuracy": 0.5 + i * 0.01}), tmp_path / "t.jsonl")
+    df = load_all_results(tmp_path, deduplicate=True)
+    assert len(df) == 1
+    assert df.iloc[0]["metric_value"] == 0.52
+
+
+def test_no_dedup_by_default(tmp_path: Path):
+    for i in range(3):
+        write_result(_make_result(f"run-{i}"), tmp_path / "t.jsonl")
+    df = load_all_results(tmp_path)
+    assert len(df) == 3

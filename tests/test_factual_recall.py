@@ -25,6 +25,29 @@ class TestReproducibility:
         assert task1.load_examples() != task2.load_examples()
 
 
+class TestSubstringMatching:
+    def setup_method(self):
+        self.task = FactualRecallTask(n_examples=5, seed=42)
+
+    def test_exact_match(self):
+        assert self.task._match_any_alias("Paris", ["Paris"])
+
+    def test_substring_match(self):
+        assert self.task._match_any_alias("Paris, France", ["Paris"])
+
+    def test_substring_normalized(self):
+        assert self.task._match_any_alias("Paris, the capital of France", ["Paris"])
+
+    def test_no_match_when_absent(self):
+        assert not self.task._match_any_alias("London is great", ["Paris"])
+
+    def test_multiple_aliases(self):
+        assert self.task._match_any_alias("The Big Apple is NYC", ["New York City", "NYC"])
+
+    def test_empty_alias_no_match(self):
+        assert not self.task._match_any_alias("anything", [""])
+
+
 class TestFactualRecall410m:
     def test_end_to_end(self, model_410m):
         task = FactualRecallTask(n_examples=100, seed=42)

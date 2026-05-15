@@ -23,7 +23,7 @@ class ArithmeticTask(GenerationTask):
     """
 
     name = "arithmetic"
-    version = "v1"
+    version = "v2"
     max_new_tokens = 10
 
     def __init__(
@@ -32,11 +32,13 @@ class ArithmeticTask(GenerationTask):
         operation: Literal["add", "subtract"] = "add",
         n_examples: int = 100,
         seed: int = 42,
+        prompt_format: Literal["equation", "qa"] = "equation",
     ):
         self.n_digits = n_digits
         self.operation = operation
         self.n_examples = n_examples
         self.seed = seed
+        self.prompt_format = prompt_format
 
     def load_examples(self, n: int | None = None) -> list[Example]:
         rng = random.Random(self.seed)
@@ -53,7 +55,10 @@ class ArithmeticTask(GenerationTask):
                 answer = a + b
             else:
                 answer = a - b
-            prompt = f"Q: What is {a} {op_symbol} {b}?\nA:"
+            if self.prompt_format == "equation":
+                prompt = f"{a} {op_symbol} {b} ="
+            else:
+                prompt = f"Q: What is {a} {op_symbol} {b}?\nA:"
             examples.append(Example(
                 id=str(i),
                 prompt=prompt,

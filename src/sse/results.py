@@ -33,7 +33,7 @@ def load_results(path: Path) -> list[EvalResult]:
     return results
 
 
-def load_all_results(results_dir: Path) -> pd.DataFrame:
+def load_all_results(results_dir: Path, deduplicate: bool = False) -> pd.DataFrame:
     all_results = []
     for path in sorted(results_dir.glob("*.jsonl")):
         all_results.extend(load_results(path))
@@ -53,4 +53,10 @@ def load_all_results(results_dir: Path) -> pd.DataFrame:
         for metric_name, metric_value in result.metrics.items():
             rows.append({**base, "metric_name": metric_name, "metric_value": metric_value})
 
-    return pd.DataFrame(rows)
+    df = pd.DataFrame(rows)
+    if deduplicate and not df.empty:
+        df = df.drop_duplicates(
+            subset=["model_size", "task_name", "metric_name"],
+            keep="last",
+        ).reset_index(drop=True)
+    return df

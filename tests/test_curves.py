@@ -9,6 +9,7 @@ matplotlib.use("Agg")
 from sse.analysis.curves import (
     fit_emergence_threshold,
     plot_emergence_comparison,
+    plot_emergence_with_extrapolation,
     plot_scaling_curve,
 )
 
@@ -38,9 +39,9 @@ def _make_synthetic_df() -> pd.DataFrame:
             "schema_version": "1.0",
         }
         rows.append({**base, "metric_name": "accuracy", "metric_value": float(accuracy[i])})
-        rows.append({
-            **base, "metric_name": "mean_logprob_correct", "metric_value": float(logprob[i])
-        })
+        rows.append(
+            {**base, "metric_name": "mean_logprob_correct", "metric_value": float(logprob[i])}
+        )
 
     return pd.DataFrame(rows)
 
@@ -84,3 +85,92 @@ class TestFitEmergenceThreshold:
         assert "ci_upper" in result
         assert np.isfinite(result["threshold_params"])
         assert result["ci_lower"] <= result["threshold_params"] <= result["ci_upper"]
+
+
+class TestPlotEmergenceWithExtrapolation:
+    def test_returns_dict_with_predictions(self):
+        df = _make_synthetic_df()
+        result = plot_emergence_with_extrapolation(df, "arithmetic")
+        assert "predicted_crossing_params" in result
+        assert "predicted_logprob_at_target" in result
+
+    def test_saves_files(self, tmp_path: Path):
+        df = _make_synthetic_df()
+        plot_emergence_with_extrapolation(df, "arithmetic", output_dir=tmp_path)
+        assert (tmp_path / "arithmetic_extrapolation.png").exists()
+        assert (tmp_path / "arithmetic_extrapolation.pdf").exists()
+
+    def test_logprob_extrapolation_finite(self):
+        df = _make_synthetic_df()
+        result = plot_emergence_with_extrapolation(df, "arithmetic")
+        assert result["predicted_logprob_at_target"] is not None
+        assert np.isfinite(result["predicted_logprob_at_target"])
+
+
+def _make_flat_zero_df() -> pd.DataFrame:
+    """Synthetic data with all accuracy = 0 and varying logprob."""
+    sizes = ["70m", "160m", "410m", "1b", "1.4b"]
+    params = [70e6, 160e6, 410e6, 1e9, 1.4e9]
+    log_params = np.log10(params)
+    logprob = -12 + 1.5 * (log_params - 7.8)
+
+    rows = []
+    for i, size in enumerate(sizes):
+        base = {
+            "run_id": f"run-{i}",
+            "timestamp": "2025-01-01T00:00:00Z",
+            "model_size": size,
+            "model_revision": "main",
+            "task_name": "arithmetic",
+            "task_version": "v2",
+            "n_examples": 200,
+            "schema_version": "1.0",
+        }
+        rows.append({**base, "metric_name": "accuracy", "metric_value": 0.0})
+        rows.append(
+            {
+                **base,
+                "metric_name": "mean_logprob_correct",
+                "metric_value": float(logprob[i]),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+class TestFlatZeroAccuracyPlot:
+    def test_no_curve_fitted_on_zero_data(self):
+        df = _make_flat_zero_df()
+        ax = plot_scaling_curve(df, "arithmetic", "accuracy")
+        ylim = ax.get_ylim()
+        assert ylim[1] >= 0.5
+        lines = [ln for ln in ax.get_lines() if ln.get_linestyle() == "--"]
+        assert len(lines) == 0
+
+    def test_extrapolation_with_zero_accuracy(self, tmp_path: Path):
+        df = _make_flat_zero_df()
+        result = plot_emergence_with_extrapolation(
+            df,
+            "arithmetic",
+            output_dir=tmp_path,
+        )
+        assert result["predicted_crossing_params"] is None
+        assert result["predicted_logprob_at_target"] is not None
+        assert np.isfinite(result["predicted_logprob_at_target"])
+
+
+class TestExtrapolationConfidenceBands:
+    def test_extrapolation_has_ci_bounds(self):
+        df = _make_synthetic_df()
+        result = plot_emergence_with_extrapolation(df, "arithmetic")
+        assert "predicted_logprob_ci_lower" in result
+        assert "predicted_logprob_ci_upper" in result
+        assert result["predicted_logprob_ci_lower"] is not None
+        assert result["predicted_logprob_ci_upper"] is not None
+        assert result["predicted_logprob_ci_lower"] <= result["predicted_logprob_at_target"]
+        assert result["predicted_logprob_at_target"] <= result["predicted_logprob_ci_upper"]
+
+    def test_flat_zero_still_has_ci(self):
+        df = _make_flat_zero_df()
+        result = plot_emergence_with_extrapolation(df, "arithmetic")
+        assert result["predicted_logprob_ci_lower"] is not None
+        assert result["predicted_logprob_ci_upper"] is not None

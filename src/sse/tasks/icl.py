@@ -23,7 +23,7 @@ class ICLArithmeticTask(GenerationTask):
     """
 
     name = "icl_arithmetic"
-    version = "v1"
+    version = "v2"
     max_new_tokens = 10
 
     def __init__(
@@ -33,12 +33,14 @@ class ICLArithmeticTask(GenerationTask):
         n_examples: int = 100,
         n_shots: int = 0,
         seed: int = 42,
+        prompt_format: Literal["equation", "qa"] = "equation",
     ):
         self.n_digits = n_digits
         self.operation = operation
         self.n_examples = n_examples
         self.n_shots = n_shots
         self.seed = seed
+        self.prompt_format = prompt_format
 
     def _generate_pairs(self, rng: random.Random, count: int) -> list[tuple[int, int, int]]:
         lo = 10 ** (self.n_digits - 1)
@@ -53,6 +55,8 @@ class ICLArithmeticTask(GenerationTask):
 
     def _format_qa(self, a: int, b: int, answer: int) -> str:
         op_symbol = "+" if self.operation == "add" else "-"
+        if self.prompt_format == "equation":
+            return f"{a} {op_symbol} {b} = {answer}"
         return f"Q: What is {a} {op_symbol} {b}?\nA: {answer}"
 
     def load_examples(self, n: int | None = None) -> list[Example]:
@@ -63,7 +67,10 @@ class ICLArithmeticTask(GenerationTask):
         pairs = self._generate_pairs(rng, count)
         examples = []
         for i, (a, b, answer) in enumerate(pairs):
-            prompt = f"Q: What is {a} {op_symbol} {b}?\nA:"
+            if self.prompt_format == "equation":
+                prompt = f"{a} {op_symbol} {b} ="
+            else:
+                prompt = f"Q: What is {a} {op_symbol} {b}?\nA:"
             examples.append(Example(
                 id=str(i),
                 prompt=prompt,

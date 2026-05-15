@@ -77,7 +77,8 @@ class FactualRecallTask(GenerationTask):
     def _match_any_alias(self, output: str, aliases: list[str]) -> bool:
         normalized_output = _normalize(output)
         for alias in aliases:
-            if _normalize(alias) == normalized_output:
+            normalized_alias = _normalize(alias)
+            if normalized_alias and normalized_alias in normalized_output:
                 return True
         return False
 
